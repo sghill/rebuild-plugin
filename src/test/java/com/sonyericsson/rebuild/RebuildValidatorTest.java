@@ -27,6 +27,7 @@ import com.gargoylesoftware.htmlunit.WebAssert;
 import com.gargoylesoftware.htmlunit.html.HtmlAnchor;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 
+import com.google.common.collect.Lists;
 import hudson.Extension;
 import hudson.model.AbstractBuild;
 import hudson.model.Action;
@@ -39,6 +40,7 @@ import hudson.model.FreeStyleProject;
 import hudson.model.ParametersAction;
 import hudson.model.ParametersDefinitionProperty;
 import hudson.model.Project;
+import hudson.model.Run;
 import hudson.model.StringParameterDefinition;
 import hudson.model.StringParameterValue;
 
@@ -154,13 +156,13 @@ public class RebuildValidatorTest extends HudsonTestCase {
 	}
 
 	/**
-	 * Creates a new freestyle project and checks if the rebuild action is
-	 * available on the project level.
+	 * Creates a new freestyle project without a rebuild extension defined and checks
+	 * the rebuild action is available on the project level.
 	 *
 	 * @throws Exception
 	 *             Exception
 	 */
-	public void testWhenProjectWithoutParamsThenRebuildProjectAvailable()
+	public void testWhenNoRebuildExtensionOnProjectWithoutParamsThenRebuildProjectAvailable()
 			throws Exception {
 		FreeStyleProject project = createFreeStyleProject();
 
@@ -169,6 +171,49 @@ public class RebuildValidatorTest extends HudsonTestCase {
 		RebuildLastCompletedBuildAction action = build.getProject().getAction(
 				RebuildLastCompletedBuildAction.class);
 		assertNotNull(action);
+	}
+
+	/**
+	 * Creates a new freestyle project with a false rebuild extension defined and checks
+	 * the rebuild action is available on the project level.
+	 *
+	 * @throws Exception
+	 *             Exception
+	 */
+	public void testWhenOnlyFalseRebuildExtensionOnProjectWithoutParamsThenRebuildProjectAvailable()
+			throws Exception {
+		hudson.getExtensionList(RebuildValidator.class).add(0,
+				new ValidatorNeverApplicable());
+		FreeStyleProject project = createFreeStyleProject();
+
+		FreeStyleBuild build = project.scheduleBuild2(0).get();
+
+		RebuildLastCompletedBuildAction action = build.getProject().getAction(
+				RebuildLastCompletedBuildAction.class);
+		assertNotNull(action);
+	}
+
+	/**
+	 * Creates a new freestyle project with two false and one true rebuild extensions defined and checks
+	 * the rebuild action is not available on the project level.
+	 *
+	 * @throws Exception
+	 *             Exception
+	 */
+	public void testWhenOneTrueRebuildExtensionOnProjectWithoutParamsThenRebuildProjectNotAvailable()
+			throws Exception {
+		hudson.getExtensionList(RebuildValidator.class).addAll(Lists.newArrayList(
+				new ValidatorNeverApplicable(),
+				new ValidatorAlwaysApplicable(), // should not add action
+				new ValidatorNeverApplicable()
+		));
+		FreeStyleProject project = createFreeStyleProject();
+
+		FreeStyleBuild build = project.scheduleBuild2(0).get();
+
+		RebuildLastCompletedBuildAction action = build.getProject().getAction(
+				RebuildLastCompletedBuildAction.class);
+		assertNull(action);
 	}
 
 	/**
@@ -325,6 +370,11 @@ public class RebuildValidatorTest extends HudsonTestCase {
 		public boolean isApplicable(AbstractBuild build) {
 			return false;
 		}
+
+		@Override
+		public boolean isApplicable(Run build) {
+			return false;
+		}
 	}
 
 	/**
@@ -334,6 +384,11 @@ public class RebuildValidatorTest extends HudsonTestCase {
 
 		@Override
 		public boolean isApplicable(AbstractBuild build) {
+			return true;
+		}
+
+		@Override
+		public boolean isApplicable(Run build) {
 			return true;
 		}
 	}

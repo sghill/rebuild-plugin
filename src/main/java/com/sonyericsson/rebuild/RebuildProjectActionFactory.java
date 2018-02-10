@@ -23,10 +23,12 @@
  */
 package com.sonyericsson.rebuild;
 
+import hudson.ExtensionList;
 import hudson.matrix.MatrixConfiguration;
 import hudson.Extension;
 import hudson.model.AbstractProject;
 import hudson.model.Action;
+import hudson.model.Hudson;
 import hudson.model.TransientProjectActionFactory;
 
 import java.util.Collection;
@@ -35,7 +37,7 @@ import static java.util.Collections.singleton;
 import static java.util.Collections.emptyList;
 
 /**
- * Makes the rebuild button available on the project level.
+ * Makes the rebuild button available on the project level unless one build validator applies to the last completed build.
  * Rebuilds the last completed build.
  */
 @Extension
@@ -46,6 +48,12 @@ public class RebuildProjectActionFactory extends TransientProjectActionFactory {
     public Collection<? extends Action> createFor(AbstractProject abstractProject) {
         if (abstractProject instanceof MatrixConfiguration) {
             return emptyList();
+        }
+        ExtensionList<RebuildValidator> validators = Hudson.getInstance().getExtensionList(RebuildValidator.class);
+        for (RebuildValidator validator : validators) {
+            if(validator.isApplicable(abstractProject.getLastCompletedBuild())) {
+                return emptyList();
+            }
         }
         return singleton(new RebuildLastCompletedBuildAction());
     }
